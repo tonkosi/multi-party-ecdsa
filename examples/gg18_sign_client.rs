@@ -43,11 +43,11 @@ fn main() {
     // read key file
     let data = fs::read_to_string(env::args().nth(2).unwrap())
         .expect("Unable to load keys, did you run keygen first? ");
-    let (party_keys, shared_keys, party_id, vss_scheme_vec, paillier_key_vector, y_sum): (
+    let (party_keys, shared_keys, party_id, vss_scheme, paillier_key_vector, y_sum): (
         Keys,
         SharedKeys,
         u16,
-        Vec<VerifiableSS>,
+        VerifiableSS,
         Vec<EncryptionKey>,
         GE,
     ) = serde_json::from_str(&data).unwrap();
@@ -98,12 +98,13 @@ fn main() {
 
     let sign_keys = SignKeys::create(
         &private,
-        &vss_scheme_vec[signers_vec[(party_num_int - 1) as usize]],
+        &vss_scheme,
         signers_vec[(party_num_int - 1) as usize],
         &signers_vec,
     );
 
-    let xi_com_vec = Keys::get_commitments_to_xi(&vss_scheme_vec);
+    let xi_com_vec = Keys::get_commitments_to_xi(&vss_scheme);
+    println!("Client #{} XI_COM_LEN {}", party_id, xi_com_vec.len());
     //////////////////////////////////////////////////////////////////////////////
     let (com, decommit) = sign_keys.phase1_broadcast();
     let (m_a_k, _) = MessageA::a(&sign_keys.k_i, &party_keys.ek);
@@ -115,6 +116,7 @@ fn main() {
         uuid.clone()
     )
     .is_ok());
+    println!("Client #{} poslao!", party_id);
     let round1_ans_vec = poll_for_broadcasts(
         &client,
         party_num_int,
@@ -123,6 +125,8 @@ fn main() {
         "round1",
         uuid.clone(),
     );
+
+    println!("Client #{} after r1", party_id);
 
     let mut j = 0;
     let mut bc1_vec: Vec<SignBroadcastPhase1> = Vec::new();
@@ -228,7 +232,7 @@ fn main() {
             miu_vec.push(alpha_ij_wi);
             let g_w_i = Keys::update_commitments_to_xi(
                 &xi_com_vec[signers_vec[(i - 1) as usize]],
-                &vss_scheme_vec[signers_vec[(i - 1) as usize]],
+                &vss_scheme,
                 signers_vec[(i - 1) as usize],
                 &signers_vec,
             );

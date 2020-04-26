@@ -270,19 +270,11 @@ impl Keys {
         }
     }
 
-    pub fn get_commitments_to_xi(vss_scheme_vec: &[VerifiableSS]) -> Vec<GE> {
-        let len = vss_scheme_vec.len();
+    pub fn get_commitments_to_xi(vss_scheme: &VerifiableSS) -> Vec<GE> {
+        let len = vss_scheme.parameters.share_count;
         (1..=len)
             .map(|i| {
-                let xij_points_vec = (0..len)
-                    .map(|j| vss_scheme_vec[j].get_point_commitment(i))
-                    .collect::<Vec<GE>>();
-
-                let mut xij_points_iter = xij_points_vec.iter();
-                let first = xij_points_iter.next().unwrap();
-
-                let tail = xij_points_iter;
-                tail.fold(first.clone(), |acc, x| acc + x)
+                vss_scheme.get_point_commitment(i)
             })
             .collect::<Vec<GE>>()
     }

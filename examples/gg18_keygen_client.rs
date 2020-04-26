@@ -248,11 +248,24 @@ fn main() {
         .map(|i| bc1_vec[i as usize].e.clone())
         .collect::<Vec<EncryptionKey>>();
 
+    let mut vss_commitments: Vec<GE> = vss_scheme_vec[0].commitments.clone();
+    for i in 1..PARTIES {
+        for j in 0..=THRESHOLD {
+            let pt = vss_scheme_vec[i as usize].commitments[j as usize] + vss_commitments[j as usize];
+            vss_commitments[j as usize] = pt;
+        }
+    }
+
+    let one_vss_scheme = VerifiableSS {
+        parameters: vss_scheme_vec[0].parameters.clone(),
+        commitments: vss_commitments,
+    };
+
     let keygen_json = serde_json::to_string(&(
         party_keys,
         shared_keys,
         party_num_int,
-        vss_scheme_vec,
+        one_vss_scheme,
         paillier_key_vec,
         y_sum,
     ))

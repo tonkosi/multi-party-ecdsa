@@ -100,6 +100,37 @@ fn signup_sign(db_mtx: State<RwLock<HashMap<Key, String>>>) -> Json<Result<Party
     Json(Ok(party_signup))
 }
 
+#[post("/signupaddparty", format = "json")]
+fn signup_addparty(db_mtx: State<RwLock<HashMap<Key, String>>>) -> Json<Result<PartySignup, ()>> {
+    // read parameters:
+    let data = fs::read_to_string("params.json")
+        .expect("Unable to read params, make sure config file is present in the same folder ");
+    let params: Params = serde_json::from_str(&data).unwrap();
+    let parties = params.parties.parse::<u16>().unwrap();
+    let key = "signup-addparty".to_string();
+
+    let party_signup = {
+        let hm = db_mtx.read().unwrap();
+        let value = hm.get(&key).unwrap();
+        let client_signup: PartySignup = serde_json::from_str(&value).unwrap();
+        if client_signup.number <= parties {
+            PartySignup {
+                number: client_signup.number + 1,
+                uuid: client_signup.uuid,
+            }
+        } else {
+            PartySignup {
+                number: 1,
+                uuid: Uuid::new_v4().to_string(),
+            }
+        }
+    };
+
+    let mut hm = db_mtx.write().unwrap();
+    hm.insert(key, serde_json::to_string(&party_signup).unwrap());
+    Json(Ok(party_signup))
+}
+
 //refcell, arc
 
 fn main() {
@@ -115,9 +146,11 @@ fn main() {
 
     let keygen_key = "signup-keygen".to_string();
     let sign_key = "signup-sign".to_string();
+    let addparty_key = "signup-addparty".to_string();
 
     let uuid_keygen = Uuid::new_v4().to_string();
     let uuid_sign = Uuid::new_v4().to_string();
+    let uuid_addparty = Uuid::new_v4().to_string();
 
     let party1 = 0;
     let party_signup_keygen = PartySignup {
@@ -128,6 +161,10 @@ fn main() {
         number: party1,
         uuid: uuid_sign,
     };
+    let party_signup_addparty = PartySignup {
+        number: party1,
+        uuid: uuid_addparty,
+    };
     {
         let mut hm = db_mtx.write().unwrap();
         hm.insert(
@@ -135,10 +172,14 @@ fn main() {
             serde_json::to_string(&party_signup_keygen).unwrap(),
         );
         hm.insert(sign_key, serde_json::to_string(&party_signup_sign).unwrap());
+        hm.insert(
+            addparty_key,
+            serde_json::to_string(&party_signup_addparty).unwrap(),
+        );
     }
     /////////////////////////////////////////////////////////////////
     rocket::ignite()
-        .mount("/", routes![get, set, signup_keygen, signup_sign])
+        .mount("/", routes![get, set, signup_keygen, signup_sign, signup_addparty])
         .manage(db_mtx)
         .launch();
 }

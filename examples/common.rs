@@ -185,6 +185,47 @@ pub fn poll_for_p2p(
     ans_vec
 }
 
+pub fn simple_send(
+    client: &Client,
+    party_from: u16,
+    party_to: u16,
+    msg_label: &str,
+    data: String,
+    sender_uuid: String,
+) -> Result<(), ()> {
+    let key = format!("{}-{}-{}-{}", party_from, party_to, msg_label, sender_uuid);
+
+    let entry = Entry {
+        key: key.clone(),
+        value: data,
+    };
+
+    let res_body = postb(&client, "set", entry).unwrap();
+    serde_json::from_str(&res_body).unwrap()
+}
+
+pub fn simple_poll(
+    client: &Client,
+    party_from: u16,
+    party_to: u16,
+    delay: Duration,
+    msg_label: &str,
+    sender_uuid: String,
+) -> String {
+    let key = format!("{}-{}-{}-{}", party_from, party_to, msg_label, sender_uuid);
+    let index = Index { key };
+    loop {
+        // add delay to allow the server to process request:
+        thread::sleep(delay);
+        let res_body = postb(client, "get", index.clone()).unwrap();
+        let answer: Result<Entry, ()> = serde_json::from_str(&res_body).unwrap();
+        if let Ok(answer) = answer {
+            println!("[{:?}] party {:?} => party {:?}", msg_label, party_from, party_to);
+            return answer.value
+        }
+    }
+}
+
 #[allow(dead_code)]
 pub fn check_sig(r: &FE, s: &FE, msg: &BigInt, pk: &GE) {
     use secp256k1::{verify, Message, PublicKey, PublicKeyFormat, Signature};
