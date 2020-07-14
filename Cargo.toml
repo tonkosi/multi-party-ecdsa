@@ -76,6 +76,9 @@ name = "gg18_keygen_client"
 name = "gg18_addparty_client"
 
 [[example]]
+name = "gg18_update_client"
+
+[[example]]
 name = "common"
 crate-type = ["lib"]
 

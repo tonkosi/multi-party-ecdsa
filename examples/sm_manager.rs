@@ -131,6 +131,43 @@ fn signup_addparty(db_mtx: State<RwLock<HashMap<Key, String>>>) -> Json<Result<P
     Json(Ok(party_signup))
 }
 
+#[post("/signupupdate", format = "json")]
+fn signup_update(db_mtx: State<RwLock<HashMap<Key, String>>>) -> Json<Result<PartySignup, ()>> {
+    let data = fs::read_to_string("update_params.json")
+        .expect("Unable to read update_params.json");
+    let parties = data.trim().to_string().parse::<u16>().unwrap();
+    println!("hhh {:?}", parties);
+
+    let key = "signup-update".to_string();
+
+    let current_party_signup = {
+        let hm = db_mtx.read().unwrap();
+        let value = hm.get(&key).unwrap();
+        let client_signup: PartySignup = serde_json::from_str(&value).unwrap();
+        client_signup
+    };
+
+    let cc = current_party_signup.clone();
+
+    let next_party_signup = {
+        if cc.number < parties {
+            PartySignup {
+                number: cc.number + 1,
+                uuid: cc.uuid,
+            }
+        } else {
+            PartySignup {
+                number: 1,
+                uuid: Uuid::new_v4().to_string(),
+            }
+        }
+    };
+
+    let mut hm = db_mtx.write().unwrap();
+    hm.insert(key, serde_json::to_string(&next_party_signup).unwrap());
+    Json(Ok(current_party_signup))
+}
+
 //refcell, arc
 
 fn main() {
@@ -147,10 +184,12 @@ fn main() {
     let keygen_key = "signup-keygen".to_string();
     let sign_key = "signup-sign".to_string();
     let addparty_key = "signup-addparty".to_string();
+    let update_key = "signup-update".to_string();
 
     let uuid_keygen = Uuid::new_v4().to_string();
     let uuid_sign = Uuid::new_v4().to_string();
     let uuid_addparty = Uuid::new_v4().to_string();
+    let uuid_update = Uuid::new_v4().to_string();
 
     let party1 = 0;
     let party_signup_keygen = PartySignup {
@@ -165,6 +204,10 @@ fn main() {
         number: party1,
         uuid: uuid_addparty,
     };
+    let party_signup_update = PartySignup {
+        number: party1 + 1,
+        uuid: uuid_update,
+    };
     {
         let mut hm = db_mtx.write().unwrap();
         hm.insert(
@@ -176,10 +219,16 @@ fn main() {
             addparty_key,
             serde_json::to_string(&party_signup_addparty).unwrap(),
         );
+        hm.insert(
+            update_key,
+            serde_json::to_string(&party_signup_update).unwrap(),
+        );
     }
     /////////////////////////////////////////////////////////////////
     rocket::ignite()
-        .mount("/", routes![get, set, signup_keygen, signup_sign, signup_addparty])
+        .mount("/", routes![
+            get, set, signup_keygen, signup_sign, signup_addparty,
+            signup_update])
         .manage(db_mtx)
         .launch();
 }
